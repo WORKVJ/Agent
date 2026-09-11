@@ -16,7 +16,10 @@ import {
   ShieldAlert,
   ChevronRight,
   Users,
-  UserPlus
+  UserPlus,
+  MapPin,
+  Mail,
+  User
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -231,6 +234,52 @@ export default function AgentDrawer({
                     </div>
                   </div>
                 </div>
+
+                {/* Expanded Account Details when selected */}
+                {isSelected && (
+                  <div className="mt-2.5 pt-2.5 border-t border-blue-200/80 space-y-2 text-[11px] bg-white/80 p-2.5 rounded-xl animate-in fade-in duration-150">
+                    <div className="font-bold text-slate-800 text-xs flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-blue-600" />
+                        Account Details
+                      </span>
+                      <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">
+                        Field Agent
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-slate-600 pt-0.5">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium">Username</span>
+                        <span className="font-mono font-bold text-slate-900">{agent.user.username}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium">Employee ID</span>
+                        <span className="font-mono font-bold text-slate-900">{agent.employee_id}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium">Phone Number</span>
+                        <span className="font-medium text-slate-800">{agent.phone_number || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium">Email</span>
+                        <span className="truncate block font-medium text-slate-800">
+                          {agent.user.email || `${agent.user.username}@company.com`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {agent.last_latitude && agent.last_longitude && (
+                      <div className="pt-1.5 border-t border-slate-100 text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>{agent.last_latitude.toFixed(4)}°, {agent.last_longitude.toFixed(4)}°</span>
+                        </span>
+                        <span>{agent.last_speed} km/h</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Footer Action */}
                 <div className="mt-2 pt-2 flex items-center justify-end gap-2 text-[11px]">
