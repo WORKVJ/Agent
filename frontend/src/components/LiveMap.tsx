@@ -289,12 +289,27 @@ export default function LiveMap({
                   ${
                     agent.active_visit
                       ? `
-                    <div class="bg-emerald-50/80 p-2 rounded-lg border border-emerald-200 text-[11px]">
-                      <span class="text-emerald-700 font-semibold block flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Active In-Store Visit
-                      </span>
-                      <span class="text-slate-900 font-medium">${agent.active_visit.client_name}</span>
-                      <span class="text-slate-500 block text-[10px]">${agent.active_visit.distance_at_checkin}m from geofence center</span>
+                    <div class="bg-emerald-50/90 p-2.5 rounded-xl border border-emerald-200 text-[11px] space-y-1.5">
+                      <div class="flex items-center justify-between">
+                        <span class="text-emerald-700 font-bold flex items-center gap-1">
+                          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Active In-Store Visit
+                        </span>
+                        <span class="text-slate-500 text-[10px] font-mono">${agent.active_visit.distance_at_checkin}m</span>
+                      </div>
+                      <span class="text-slate-900 font-semibold block">${agent.active_visit.client_name}</span>
+                      ${
+                        agent.active_visit.selfie_image
+                          ? `
+                        <div class="mt-1 rounded-lg overflow-hidden border border-emerald-300 bg-slate-950 shadow-xs">
+                          <div class="text-[9px] font-bold text-emerald-400 bg-slate-900 px-2 py-0.5 uppercase tracking-wider flex items-center justify-between">
+                            <span>📸 Punch-In Proof</span>
+                            <span>GPS Verified</span>
+                          </div>
+                          <img src="${agent.active_visit.selfie_image}" alt="Watermarked Punch Proof" class="w-full max-h-36 object-contain bg-black" />
+                        </div>
+                      `
+                          : ''
+                      }
                     </div>
                   `
                       : ''

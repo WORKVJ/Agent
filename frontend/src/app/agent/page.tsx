@@ -656,9 +656,11 @@ export default function FieldAgentMobileApp() {
     ctx.fillStyle = '#93c5fd';
     ctx.fillText(`CLIENT: ${effectiveClient}`, 18, targetHeight - bannerHeight + 72);
 
+    const latDir = currentLat >= 0 ? 'N' : 'S';
+    const lngDir = currentLng >= 0 ? 'E' : 'W';
     ctx.fillStyle = '#e2e8f0';
     ctx.font = 'normal 12px monospace';
-    ctx.fillText(`GPS: ${currentLat.toFixed(5)}° N, ${currentLng.toFixed(5)}° W (Current Location)`, 18, targetHeight - bannerHeight + 96);
+    ctx.fillText(`GPS: ${Math.abs(currentLat).toFixed(5)}° ${latDir}, ${Math.abs(currentLng).toFixed(5)}° ${lngDir} (Current Location)`, 18, targetHeight - bannerHeight + 96);
 
     ctx.fillStyle = '#fde047';
     ctx.font = 'bold 13px monospace';
@@ -1502,6 +1504,28 @@ export default function FieldAgentMobileApp() {
                 </span>
               </div>
             </div>
+
+            {/* Watermarked Punch-In Proof Photo Card */}
+            {activeVisit.selfie_image && (
+              <div className="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Your Punch-In Proof Photo</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-semibold">
+                    GPS Verified
+                  </span>
+                </div>
+                <div className="rounded-xl overflow-hidden border border-slate-200 max-h-56 bg-slate-950 flex items-center justify-center">
+                  <img
+                    src={activeVisit.selfie_image}
+                    alt="Punch-in selfie proof"
+                    className="w-full h-auto max-h-56 object-contain"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Stage 4: Punch-Out Discussion Notes & Quick Tags */}
             <div className="p-4 rounded-2xl bg-white border border-slate-200/80 space-y-3 shadow-xs">

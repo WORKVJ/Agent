@@ -184,16 +184,35 @@ export default function AgentDrawer({
 
                 {/* Active Meeting Banner if Checked In */}
                 {agent.active_visit && (
-                  <div className="mt-2.5 p-2 rounded-lg bg-blue-50 border border-blue-200 text-[11px] flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-blue-800">
-                      <Store className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span className="font-medium truncate max-w-[160px]">
-                        {agent.active_visit.client_name}
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-blue-50/90 border border-blue-200 text-[11px] space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-blue-900">
+                        <Store className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span className="font-semibold truncate max-w-[160px]">
+                          {agent.active_visit.client_name}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-blue-700 font-semibold shrink-0">
+                        {agent.active_visit.distance_at_checkin}m
                       </span>
                     </div>
-                    <span className="font-mono text-[10px] text-blue-700 font-semibold shrink-0">
-                      {agent.active_visit.distance_at_checkin}m
-                    </span>
+                    {agent.active_visit.selfie_image && (
+                      <div className="flex items-center gap-2 pt-1 border-t border-blue-200/60">
+                        <img
+                          src={agent.active_visit.selfie_image}
+                          alt="Punch-In Proof"
+                          className="w-9 h-9 rounded-lg object-cover border border-blue-300 shrink-0 shadow-xs bg-black"
+                        />
+                        <div className="overflow-hidden">
+                          <span className="text-[10px] font-bold text-emerald-700 block truncate">
+                            ✓ Punch-In Verified
+                          </span>
+                          <span className="text-[9px] text-blue-600/80 font-mono block truncate">
+                            GPS & Time Stamped
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

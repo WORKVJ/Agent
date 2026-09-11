@@ -44,6 +44,7 @@ export interface Agent {
     client_name: string;
     check_in_time: string;
     distance_at_checkin: number;
+    selfie_image?: string | null;
   } | null;
 }
 

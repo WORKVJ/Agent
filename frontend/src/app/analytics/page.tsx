@@ -228,9 +228,21 @@ export default function AnalyticsPage() {
                     </td>
                     <td className="py-3.5 px-4">
                       {v.selfie_image ? (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-medium">
-                          Verified
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedVisitModal(v)}
+                          className="flex items-center gap-2 group cursor-pointer text-left"
+                          title="Click to view full watermarked photo"
+                        >
+                          <img
+                            src={v.selfie_image}
+                            alt="Punch Proof"
+                            className="w-8 h-8 rounded-lg object-cover border border-slate-200 group-hover:scale-105 group-hover:border-blue-500 transition-all shadow-2xs bg-black"
+                          />
+                          <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-200 group-hover:bg-emerald-100">
+                            View Proof
+                          </span>
+                        </button>
                       ) : (
                         <span className="text-slate-400 text-[11px]">None</span>
                       )}

@@ -43,7 +43,8 @@ class AgentProfileSerializer(serializers.ModelSerializer):
                 'client_id': visit.client.id,
                 'client_name': visit.client.name,
                 'check_in_time': visit.check_in_time,
-                'distance_at_checkin': visit.distance_at_checkin
+                'distance_at_checkin': visit.distance_at_checkin,
+                'selfie_image': visit.selfie_image
             }
         return None
 
