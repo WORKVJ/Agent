@@ -41,6 +41,7 @@ import {
   Users,
   UserPlus
 } from 'lucide-react';
+import PwaInstallBanner from '@/components/PwaInstallBanner';
 
 export default function FieldAgentMobileApp() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -164,16 +165,44 @@ export default function FieldAgentMobileApp() {
         setClients(clientList);
 
         if (agentList.length > 0) {
-          const first = agentList[0];
-          setSelectedAgentId(first.id);
-          setIsOnDuty(first.is_on_duty);
-          if (first.last_latitude && first.last_longitude) {
-            setCurrentLat(first.last_latitude);
-            setCurrentLng(first.last_longitude);
+          // Check for logged-in agent session
+          let matchedAgent = agentList[0];
+          if (typeof window !== 'undefined') {
+            const savedSession = localStorage.getItem('agentpulse_session');
+            if (savedSession) {
+              try {
+                const parsed = JSON.parse(savedSession);
+                if (parsed.agent && parsed.agent.id) {
+                  const found = agentList.find((a) => a.id === parsed.agent.id);
+                  if (found) matchedAgent = found;
+                } else if (parsed.user && parsed.user.username) {
+                  const found = agentList.find(
+                    (a) => a.user.username.toLowerCase() === parsed.user.username.toLowerCase()
+                  );
+                  if (found) matchedAgent = found;
+                }
+              } catch (e) {
+                console.warn('Session parse error:', e);
+              }
+            }
           }
-          if (first.active_visit) {
-            setActiveVisit(first.active_visit);
-            meetingStartTimeRef.current = new Date(first.active_visit.check_in_time).getTime();
+
+          setSelectedAgentId(matchedAgent.id);
+          setIsOnDuty(matchedAgent.is_on_duty);
+          if (matchedAgent.last_latitude && matchedAgent.last_longitude) {
+            setCurrentLat(matchedAgent.last_latitude);
+            setCurrentLng(matchedAgent.last_longitude);
+          }
+          if (matchedAgent.active_visit) {
+            setActiveVisit(matchedAgent.active_visit);
+            meetingStartTimeRef.current = new Date(matchedAgent.active_visit.check_in_time).getTime();
+          }
+
+          // Auto-start real GPS if on duty
+          if (matchedAgent.is_on_duty && typeof navigator !== 'undefined' && navigator.geolocation) {
+            setTimeout(() => {
+              enableRealDeviceGps();
+            }, 600);
           }
         } else {
           setSelectedAgentId(0);
@@ -273,12 +302,11 @@ export default function FieldAgentMobileApp() {
 
   // Real Device GPS Toggle & Continuous Tracking
   const enableRealDeviceGps = () => {
-    if (!navigator.geolocation) {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setFeedback({ type: 'error', text: 'Geolocation is not supported by your device browser.' });
       return;
     }
 
-    // Clear existing watch if active
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -287,27 +315,43 @@ export default function FieldAgentMobileApp() {
     setIsUsingRealGps(true);
     setFeedback({ type: 'info', text: 'Locking onto real device GPS satellite signal...' });
 
-    // 1. Fetch immediate high-accuracy position snapshot
+    const onGpsSuccess = (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const speedKmh = Math.round((pos.coords.speed || 0) * 3.6);
+      setCurrentLat(lat);
+      setCurrentLng(lng);
+      setCurrentSpeed(speedKmh);
+      setIsStationary(speedKmh < 1);
+      setIsUsingRealGps(true);
+
+      // Immediately transmit real position to HQ radar
+      if (selectedAgentId > 0 && isOnDuty) {
+        sendLocationPing(selectedAgentId, lat, lng, speedKmh, Math.round(batteryLevel)).catch(console.warn);
+      }
+
+      setFeedback({
+        type: 'success',
+        text: `Device GPS locked: ${lat.toFixed(5)}°, ${lng.toFixed(5)}° (Accuracy: ±${Math.round(pos.coords.accuracy || 10)}m)`
+      });
+    };
+
+    // 1. Fetch immediate position snapshot (with indoor/cellular fallback)
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const speedKmh = Math.round((pos.coords.speed || 0) * 3.6);
-        setCurrentLat(lat);
-        setCurrentLng(lng);
-        setCurrentSpeed(speedKmh);
-        setIsStationary(speedKmh < 1);
-        setFeedback({
-          type: 'success',
-          text: `Device GPS locked: ${lat.toFixed(5)}° N, ${lng.toFixed(5)}° W (Accuracy: ±${Math.round(pos.coords.accuracy)}m)`
-        });
-      },
+      onGpsSuccess,
       (err) => {
-        setIsUsingRealGps(false);
-        setFeedback({
-          type: 'error',
-          text: `GPS Access Denied: ${err.message}. Please allow location permissions in your browser.`
-        });
+        console.warn('High accuracy GPS error, trying coarse location...', err);
+        navigator.geolocation.getCurrentPosition(
+          onGpsSuccess,
+          (err2) => {
+            setIsUsingRealGps(false);
+            setFeedback({
+              type: 'error',
+              text: `GPS Access Denied (${err2.message}). Please allow Location Permission in your browser address bar.`
+            });
+          },
+          { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
+        );
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -323,6 +367,10 @@ export default function FieldAgentMobileApp() {
           setCurrentLng(lng);
           setCurrentSpeed(speedKmh);
           setIsStationary(speedKmh < 1);
+
+          if (selectedAgentId > 0 && isOnDuty) {
+            sendLocationPing(selectedAgentId, lat, lng, speedKmh, Math.round(batteryLevel)).catch(console.warn);
+          }
         },
         (err) => {
           console.warn('Continuous GPS watch warning:', err.message);
@@ -338,6 +386,17 @@ export default function FieldAgentMobileApp() {
   const handleDutyToggle = async () => {
     const nextState = !isOnDuty;
     setIsOnDuty(nextState);
+
+    // Auto-trigger GPS tracking when starting shift
+    if (nextState) {
+      enableRealDeviceGps();
+    } else {
+      if (watchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    }
+
     setFeedback({
       type: 'info',
       text: nextState
@@ -437,19 +496,60 @@ export default function FieldAgentMobileApp() {
     });
   };
 
+  // Callback ref to reliably attach stream whenever video mounts in DOM
+  const setVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    if (node && cameraStreamRef.current) {
+      node.srcObject = cameraStreamRef.current;
+      node.play().catch(console.warn);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isCapturingSelfie && videoRef.current && cameraStreamRef.current) {
+      videoRef.current.srcObject = cameraStreamRef.current;
+      videoRef.current.play().catch(console.warn);
+    }
+  }, [isCapturingSelfie]);
+
   // CAMERA & MEMORY-OPTIMIZED WATERMARK GENERATOR
   const startCamera = async () => {
     setIsCapturingSelfie(true);
+    setFeedback({ type: 'info', text: 'Initializing camera...' });
+
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false
+        });
+      } catch (e1) {
+        // Fallback for devices/browsers that don't support facingMode constraint
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
+
       cameraStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(console.warn);
       }
-    } catch (err) {
-      console.warn('Camera access error, fallback to simulated selfie:', err);
+      setFeedback({ type: 'success', text: 'Camera active. Frame yourself and tap "Snap & Stamp".' });
+    } catch (err: any) {
+      console.warn('Camera access error:', err);
+      setIsCapturingSelfie(false);
+      setFeedback({
+        type: 'error',
+        text: `Camera permission denied or unavailable (${err.message || 'Error'}). Tap "Take Live Selfie (Phone Camera)" or "Instant GPS Punch".`
+      });
     }
   };
 
@@ -849,6 +949,11 @@ export default function FieldAgentMobileApp() {
 
   return (
     <div className="flex-1 flex flex-col items-center p-3 sm:p-5 max-w-lg mx-auto w-full space-y-4">
+      {/* PWA Install Banner */}
+      <div className="w-full">
+        <PwaInstallBanner />
+      </div>
+
       {/* Subtle Top Offline Banner */}
       {isMounted && (isSimulatedOffline || !isOnline) && (
         <div className="w-full bg-amber-400 text-slate-950 px-4 py-2.5 rounded-2xl flex items-center justify-between font-semibold text-xs shadow-sm border border-amber-500 animate-in fade-in duration-200">
@@ -969,6 +1074,39 @@ export default function FieldAgentMobileApp() {
             })}
           </div>
         </div>
+
+        {/* ACTIVE VISIT BANNER: DISPLAYED WHEN AGENT IS ALREADY CHECKED IN */}
+        {activeVisit && (
+          <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 text-xs space-y-2.5 shadow-xs animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+                </span>
+                <span className="font-bold text-slate-900">
+                  Currently Punched In: {activeVisit.client_name || 'Client Store'}
+                </span>
+              </div>
+              <span className="text-[10px] bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                In-Progress
+              </span>
+            </div>
+            <p className="text-[11px] text-blue-800 leading-relaxed">
+              Your meeting stopwatch is currently active. To punch in at another location, complete your visit notes and punch out below.
+            </p>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setStageOverride(4)}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Go to Meeting Notes & Punch Out</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* STAGE 1 & 2: DYNAMIC ON-THE-FLY DESTINATION & SELFIE PUNCH-IN */}
         {(activeStageNumber === 1 || activeStageNumber === 2) && !activeVisit && (
@@ -1091,12 +1229,12 @@ export default function FieldAgentMobileApp() {
                 {isCapturingSelfie ? (
                   <div className="p-2 bg-slate-950 rounded-2xl space-y-2">
                     <div className="relative w-full h-56 bg-black rounded-xl overflow-hidden">
-                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                      <video ref={setVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={handleCaptureFromVideo}
-                        className="flex-1 min-h-[44px] bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5"
+                        className="flex-1 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                       >
                         <Camera className="w-4 h-4" />
                         <span>Snap & Stamp</span>
@@ -1110,27 +1248,46 @@ export default function FieldAgentMobileApp() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2 pt-1">
-                    <button
-                      onClick={handleSimulatedSelfie}
-                      className="w-full min-h-[46px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
-                    >
+                  <div className="space-y-2.5 pt-1">
+                    {/* Primary Button: Native Phone Camera */}
+                    <label className="w-full min-h-[48px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer active:scale-98">
                       <Camera className="w-4 h-4" />
-                      <span>Take Selfie Punch</span>
-                    </button>
+                      <span>📸 Open Phone Camera (Live Selfie)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="user"
+                        onChange={handleUploadSelfiePhoto}
+                        className="hidden"
+                      />
+                    </label>
 
+                    {/* Secondary Options */}
                     <div className="grid grid-cols-2 gap-2">
                       <button
+                        type="button"
                         onClick={startCamera}
-                        className="min-h-[40px] rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="min-h-[40px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
-                        <Camera className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Open WebCam</span>
+                        <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Live WebCam</span>
                       </button>
 
-                      <label className="min-h-[40px] rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
-                        <UploadCloud className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Upload Photo</span>
+                      <button
+                        type="button"
+                        onClick={handleSimulatedSelfie}
+                        className="min-h-[40px] rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        title="Instant stamp with real GPS and time"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Instant GPS Punch</span>
+                      </button>
+                    </div>
+
+                    <div className="flex justify-center pt-0.5">
+                      <label className="text-[11px] text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer underline">
+                        <UploadCloud className="w-3 h-3 text-slate-400" />
+                        <span>Upload photo from gallery</span>
                         <input type="file" accept="image/*" onChange={handleUploadSelfiePhoto} className="hidden" />
                       </label>
                     </div>
