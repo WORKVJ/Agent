@@ -1,5 +1,23 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
-export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:8000/ws/location/';
+function resolveApiBaseUrl(): string {
+  let url = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api').trim();
+  url = url.replace(/\/+$/, '');
+  if (!url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  return url;
+}
+
+function resolveWsBaseUrl(): string {
+  let url = (process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:8000/ws/location/').trim();
+  url = url.replace(/\/+$/, '');
+  if (!url.endsWith('/ws/location')) {
+    url = `${url}/ws/location`;
+  }
+  return `${url}/`;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
+export const WS_BASE_URL = resolveWsBaseUrl();
 
 export interface Agent {
   id: number;
@@ -250,9 +268,16 @@ export async function loginUser(username: string, password: string): Promise<Log
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
   });
-  const data = await res.json();
+
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`Server returned HTTP ${res.status}: ${res.statusText}. Please verify backend connection.`);
+  }
+
   if (!res.ok) {
-    throw new Error(data.error || 'Invalid credentials');
+    throw new Error(data?.error || data?.detail || 'Invalid credentials');
   }
   return data;
 }
