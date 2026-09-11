@@ -21,9 +21,14 @@ import {
   RefreshCw,
   Eye,
   CheckCircle2,
-  X
+  AlertCircle,
+  X,
+  Key,
+  Trash2,
+  Lock,
+  Check
 } from 'lucide-react';
-import { fetchAgents, Agent } from '@/lib/api';
+import { fetchAgents, deleteAgent, updateAgent, Agent } from '@/lib/api';
 
 export default function UsersDirectoryPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -32,6 +37,17 @@ export default function UsersDirectoryPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ON_DUTY' | 'CHECKED_IN' | 'OFF_DUTY'>('ALL');
   const [selectedAgentDetails, setSelectedAgentDetails] = useState<Agent | null>(null);
   const [userSession, setUserSession] = useState<any>(null);
+
+  // Password Reset State
+  const [changePasswordModalAgent, setChangePasswordModalAgent] = useState<Agent | null>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+
+  // Delete Confirm State
+  const [deleteConfirmAgent, setDeleteConfirmAgent] = useState<Agent | null>(null);
+
+  // Action status message
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const loadAgents = async () => {
     setIsLoading(true);
@@ -56,6 +72,58 @@ export default function UsersDirectoryPage() {
       console.warn('Failed to parse session:', e);
     }
   }, []);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!changePasswordModalAgent) return;
+    if (!newPasswordInput.trim() || newPasswordInput.trim().length < 4) {
+      setActionMessage({ type: 'error', text: 'Password must be at least 4 characters.' });
+      return;
+    }
+
+    setIsUpdating(true);
+    setActionMessage(null);
+    try {
+      await updateAgent(changePasswordModalAgent.id, { password: newPasswordInput.trim() });
+      setActionMessage({
+        type: 'success',
+        text: `Password updated successfully for ${changePasswordModalAgent.full_name} (${changePasswordModalAgent.user.username})!`
+      });
+      setTimeout(() => {
+        setChangePasswordModalAgent(null);
+        setNewPasswordInput('');
+        setActionMessage(null);
+      }, 1500);
+    } catch (err: any) {
+      setActionMessage({ type: 'error', text: err.message || 'Failed to update password.' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteAgent = async (agentId: number) => {
+    setIsUpdating(true);
+    setActionMessage(null);
+    try {
+      await deleteAgent(agentId);
+      setAgents((prev) => prev.filter((a) => a.id !== agentId));
+      if (selectedAgentDetails?.id === agentId) {
+        setSelectedAgentDetails(null);
+      }
+      setActionMessage({
+        type: 'success',
+        text: `Agent ${deleteConfirmAgent?.full_name} was removed from the system.`
+      });
+      setTimeout(() => {
+        setDeleteConfirmAgent(null);
+        setActionMessage(null);
+      }, 1200);
+    } catch (err: any) {
+      setActionMessage({ type: 'error', text: err.message || 'Failed to delete agent.' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const filteredAgents = agents.filter((agent) => {
     const term = searchTerm.toLowerCase();
@@ -87,7 +155,7 @@ export default function UsersDirectoryPage() {
             <span>Fleet Agents & User Accounts</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            View, manage, and inspect all registered user credentials, employee badge IDs, and live duty profiles.
+            View, manage, delete, or reset passwords for all registered user credentials and field agents.
           </p>
         </div>
 
@@ -399,14 +467,30 @@ export default function UsersDirectoryPage() {
                             <span>Details</span>
                           </button>
 
-                          <Link
-                            href="/"
-                            className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold flex items-center gap-1 transition-colors"
-                            title="Locate on Radar Map"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setChangePasswordModalAgent(agent);
+                              setNewPasswordInput('');
+                              setActionMessage(null);
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-amber-50 hover:text-amber-700 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+                            title="Change Password"
                           >
-                            <MapPin className="w-3.5 h-3.5" />
-                            <span>Radar</span>
-                          </Link>
+                            <Key className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteConfirmAgent(agent);
+                              setActionMessage(null);
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-400 transition-colors cursor-pointer"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -496,21 +580,189 @@ export default function UsersDirectoryPage() {
             </div>
 
             {/* Modal Actions */}
-            <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
+            <div className="pt-3 flex items-center justify-between gap-3 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChangePasswordModalAgent(selectedAgentDetails);
+                    setNewPasswordInput('');
+                    setActionMessage(null);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Key className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Change Password</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteConfirmAgent(selectedAgentDetails);
+                    setActionMessage(null);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Delete User</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAgentDetails(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+                >
+                  Close
+                </button>
+                <Link
+                  href="/"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Track on Map</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {changePasswordModalAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">Change Agent Password</h3>
+                  <p className="text-xs text-slate-400">{changePasswordModalAgent.full_name} ({changePasswordModalAgent.user.username})</p>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={() => setSelectedAgentDetails(null)}
-                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+                onClick={() => setChangePasswordModalAgent(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                Close
+                <X className="w-4 h-4" />
               </button>
-              <Link
-                href="/"
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+            </div>
+
+            {actionMessage && (
+              <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                actionMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold' : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}>
+                {actionMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+                <span>{actionMessage.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">New Password *</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter new password (e.g. AgentPass456!)"
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-mono text-slate-900 outline-none transition-all"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  The agent can use this new password immediately to log into the mobile app.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setChangePasswordModalAgent(null)}
+                  className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                >
+                  {isUpdating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>Save New Password</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">Delete Field Agent Account</h3>
+                  <p className="text-xs text-slate-400">Confirm permanent deletion</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmAgent(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                <MapPin className="w-3.5 h-3.5" />
-                <span>View on Live Radar</span>
-              </Link>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {actionMessage && (
+              <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                actionMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold' : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}>
+                {actionMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+                <span>{actionMessage.text}</span>
+              </div>
+            )}
+
+            <div className="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-100 text-xs text-slate-700 space-y-1.5">
+              <p>
+                Are you sure you want to delete <span className="font-bold text-slate-900">{deleteConfirmAgent.full_name}</span>?
+              </p>
+              <div className="text-[11px] text-slate-500 font-mono bg-white p-2 rounded-lg border border-rose-100">
+                Username: {deleteConfirmAgent.user.username} | Badge: {deleteConfirmAgent.employee_id}
+              </div>
+              <p className="text-rose-600 text-[11px] font-medium pt-1">
+                This will delete the agent profile and revoke all mobile login access immediately.
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmAgent(null)}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteAgent(deleteConfirmAgent.id)}
+                disabled={isUpdating}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              >
+                {isUpdating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>Yes, Delete Agent</span>
+              </button>
             </div>
           </div>
         </div>

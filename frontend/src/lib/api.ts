@@ -340,4 +340,39 @@ export async function purgeData(): Promise<{
   return data;
 }
 
+export async function deleteAgent(agentId: number): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to delete agent');
+  }
+  return data;
+}
+
+export async function updateAgent(
+  agentId: number,
+  data: {
+    password?: string;
+    phone_number?: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    employee_id?: string;
+  }
+): Promise<{ success: boolean; message: string; agent: Agent }> {
+  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const resData = await res.json();
+  if (!res.ok) {
+    throw new Error(resData.error || 'Failed to update agent');
+  }
+  return resData;
+}
+
 

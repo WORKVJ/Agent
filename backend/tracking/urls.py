@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     CheckInAPIView, CheckOutAPIView, LocationPingAPIView,
-    DutyToggleAPIView, AgentListAPIView, ClientListAPIView,
+    DutyToggleAPIView, AgentListAPIView, AgentDetailAPIView, ClientListAPIView,
     VisitListAPIView, RouteReplayAPIView, AnalyticsSummaryAPIView,
     AuthLoginAPIView, PurgeDataAPIView
 )
@@ -13,6 +13,7 @@ urlpatterns = [
     path('location/ping/', LocationPingAPIView.as_view(), name='api_location_ping'),
     path('duty/', DutyToggleAPIView.as_view(), name='api_duty_toggle'),
     path('agents/', AgentListAPIView.as_view(), name='api_agents_list'),
+    path('agents/<int:agent_id>/', AgentDetailAPIView.as_view(), name='api_agent_detail'),
     path('clients/', ClientListAPIView.as_view(), name='api_clients_list'),
     path('visits/', VisitListAPIView.as_view(), name='api_visits_list'),
     path('routes/<int:agent_id>/', RouteReplayAPIView.as_view(), name='api_route_replay'),

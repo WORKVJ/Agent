@@ -408,6 +408,72 @@ class AgentListAPIView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class AgentDetailAPIView(APIView):
+    """
+    DELETE /api/agents/<int:agent_id>/
+    Deletes the agent and the underlying User account.
+
+    PATCH /api/agents/<int:agent_id>/
+    Updates agent profile, contact info, or resets password.
+    """
+    def delete(self, request, agent_id):
+        agent = get_object_or_404(AgentProfile, id=agent_id)
+        user = agent.user
+        agent_name = user.get_full_name() or user.username
+
+        if user.is_superuser or user.username == 'admin':
+            return Response({"error": "Cannot delete System Administrator account."}, status=status.HTTP_400_BAD_REQUEST)
+
+        agent.delete()
+        user.delete()
+
+        broadcast_location_sync({
+            'event': 'agent_deleted',
+            'agent_id': agent_id
+        })
+
+        return Response({
+            "success": True,
+            "message": f"Agent {agent_name} deleted successfully."
+        }, status=status.HTTP_200_OK)
+
+    def patch(self, request, agent_id):
+        agent = get_object_or_404(AgentProfile, id=agent_id)
+        user = agent.user
+
+        new_password = request.data.get('password')
+        phone_number = request.data.get('phone_number')
+        first_name = request.data.get('first_name')
+        last_name = request.data.get('last_name')
+        email = request.data.get('email')
+        employee_id = request.data.get('employee_id')
+
+        if new_password:
+            if len(new_password.strip()) < 4:
+                return Response({"error": "Password must be at least 4 characters."}, status=status.HTTP_400_BAD_REQUEST)
+            user.set_password(new_password.strip())
+
+        if first_name is not None:
+            user.first_name = first_name.strip()
+        if last_name is not None:
+            user.last_name = last_name.strip()
+        if email is not None:
+            user.email = email.strip()
+        user.save()
+
+        if phone_number is not None:
+            agent.phone_number = phone_number.strip()
+        if employee_id is not None and employee_id.strip():
+            agent.employee_id = employee_id.strip().upper()
+        agent.save()
+
+        return Response({
+            "success": True,
+            "message": f"Agent {user.get_full_name() or user.username} updated successfully.",
+            "agent": AgentProfileSerializer(agent).data
+        }, status=status.HTTP_200_OK)
+
+
 class ClientListAPIView(APIView):
     """
     GET /api/clients/

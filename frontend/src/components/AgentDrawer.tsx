@@ -19,7 +19,8 @@ import {
   UserPlus,
   MapPin,
   Mail,
-  User
+  User,
+  Key
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -278,6 +279,18 @@ export default function AgentDrawer({
                         <span>{agent.last_speed} km/h</span>
                       </div>
                     )}
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <Link
+                        href="/users"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                        title="Change password or delete user in directory"
+                      >
+                        <Key className="w-3 h-3 text-amber-500" />
+                        <span>Manage Password & Account →</span>
+                      </Link>
+                    </div>
                   </div>
                 )}
 
