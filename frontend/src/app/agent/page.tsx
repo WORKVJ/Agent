@@ -43,7 +43,9 @@ import {
   User,
   Mail,
   Phone,
-  Shield
+  Shield,
+  Compass,
+  XCircle
 } from 'lucide-react';
 import PwaInstallBanner from '@/components/PwaInstallBanner';
 
@@ -56,8 +58,8 @@ export default function FieldAgentMobileApp() {
 
   // Agent Telemetry State
   const [isOnDuty, setIsOnDuty] = useState(false);
-  const [currentLat, setCurrentLat] = useState<number>(40.7608);
-  const [currentLng, setCurrentLng] = useState<number>(-73.9831);
+  const [currentLat, setCurrentLat] = useState<number>(11.8028);
+  const [currentLng, setCurrentLng] = useState<number>(76.0033);
   const [currentSpeed, setCurrentSpeed] = useState<number>(0.0);
   const [batteryLevel, setBatteryLevel] = useState<number>(100);
   const [isStationary, setIsStationary] = useState(true);
@@ -194,7 +196,11 @@ export default function FieldAgentMobileApp() {
 
           setSelectedAgentId(matchedAgent.id);
           setIsOnDuty(matchedAgent.is_on_duty);
-          if (matchedAgent.last_latitude && matchedAgent.last_longitude) {
+          if (
+            matchedAgent.last_latitude &&
+            matchedAgent.last_longitude &&
+            Math.abs(matchedAgent.last_latitude - 40.7580) > 0.05
+          ) {
             setCurrentLat(matchedAgent.last_latitude);
             setCurrentLng(matchedAgent.last_longitude);
           }
@@ -203,11 +209,11 @@ export default function FieldAgentMobileApp() {
             meetingStartTimeRef.current = new Date(matchedAgent.active_visit.check_in_time).getTime();
           }
 
-          // Auto-start real GPS if on duty
-          if (matchedAgent.is_on_duty && typeof navigator !== 'undefined' && navigator.geolocation) {
+          // Auto-start real device GPS immediately on load
+          if (typeof navigator !== 'undefined' && navigator.geolocation) {
             setTimeout(() => {
               enableRealDeviceGps();
-            }, 600);
+            }, 300);
           }
         } else {
           setSelectedAgentId(0);
@@ -330,9 +336,9 @@ export default function FieldAgentMobileApp() {
       setIsStationary(speedKmh < 1);
       setIsUsingRealGps(true);
 
-      // Immediately transmit real position to HQ radar
-      if (selectedAgentId > 0 && isOnDuty) {
-        sendLocationPing(selectedAgentId, lat, lng, speedKmh, Math.round(batteryLevel)).catch(console.warn);
+      // Immediately transmit real position to HQ radar (sync_location=true ensures DB updates immediately)
+      if (selectedAgentId > 0) {
+        sendLocationPing(selectedAgentId, lat, lng, speedKmh, Math.round(batteryLevel), true).catch(console.warn);
       }
 
       setFeedback({
@@ -373,8 +379,8 @@ export default function FieldAgentMobileApp() {
           setCurrentSpeed(speedKmh);
           setIsStationary(speedKmh < 1);
 
-          if (selectedAgentId > 0 && isOnDuty) {
-            sendLocationPing(selectedAgentId, lat, lng, speedKmh, Math.round(batteryLevel)).catch(console.warn);
+          if (selectedAgentId > 0) {
+            sendLocationPing(selectedAgentId, lat, lng, speedKmh, Math.round(batteryLevel), true).catch(console.warn);
           }
         },
         (err) => {
@@ -423,6 +429,9 @@ export default function FieldAgentMobileApp() {
 
     try {
       await toggleDutyStatus(selectedAgentId, nextState);
+      if (nextState && selectedAgentId > 0) {
+        sendLocationPing(selectedAgentId, currentLat, currentLng, currentSpeed, Math.round(batteryLevel), true).catch(console.warn);
+      }
     } catch (e: any) {
       console.error('Duty toggle error:', e);
     }
@@ -742,11 +751,32 @@ export default function FieldAgentMobileApp() {
     }
 
     try {
+      // Capture fresh physical hardware GPS directly before punching in
+      let checkInLat = currentLat;
+      let checkInLng = currentLng;
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        try {
+          const freshPos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 4000,
+              maximumAge: 10000
+            });
+          });
+          checkInLat = freshPos.coords.latitude;
+          checkInLng = freshPos.coords.longitude;
+          setCurrentLat(checkInLat);
+          setCurrentLng(checkInLng);
+        } catch (gpsErr) {
+          console.warn('Using existing coords for check-in:', gpsErr);
+        }
+      }
+
       const resp = await performCheckIn(
         selectedAgentId,
         targetClient?.id || null,
-        currentLat,
-        currentLng,
+        checkInLat,
+        checkInLng,
         selfieDataUrl,
         effectiveClient,
         effectiveAddress
@@ -1094,6 +1124,37 @@ export default function FieldAgentMobileApp() {
               </div>
             )}
 
+        {/* Real Device Hardware GPS Sync Widget */}
+        <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/90 text-xs shadow-xs">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                isUsingRealGps ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}></span>
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                isUsingRealGps ? 'bg-emerald-500' : 'bg-amber-500'
+              }`}></span>
+            </span>
+            <div className="truncate">
+              <span className="font-semibold text-slate-800 text-[11px] block">
+                {isUsingRealGps ? 'Hardware GPS Active' : 'Device Location'}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {currentLat.toFixed(5)}°, {currentLng.toFixed(5)}°
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => enableRealDeviceGps()}
+            className="px-3 py-1.5 bg-white hover:bg-slate-100 text-blue-600 font-bold border border-slate-200 rounded-lg text-[11px] shadow-xs flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
+            title="Acquire real hardware GPS lock and sync to HQ Operations Radar"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>Sync Real GPS</span>
+          </button>
+        </div>
+
         {/* Guided Step-by-Step Flow Bar */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px] px-0.5 text-slate-400">
@@ -1163,14 +1224,39 @@ export default function FieldAgentMobileApp() {
             <p className="text-[11px] text-blue-800 leading-relaxed">
               Your meeting stopwatch is currently active. To punch in at another location, complete your visit notes and punch out below.
             </p>
-            <div className="pt-1">
+            <div className="pt-1 flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
                 onClick={() => setStageOverride(4)}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Go to Meeting Notes & Punch Out</span>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirm('Clear and end this visit now? Your status will return to Available.')) {
+                    try {
+                      await performCheckOut(activeVisit.id, 'Visit completed & cleared', 0, undefined);
+                      setActiveVisit(null);
+                      setFeedback({
+                        type: 'success',
+                        text: 'Active visit ended successfully! You are ready for fresh check-ins.'
+                      });
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('agentpulse:data-updated'));
+                      }
+                    } catch (err: any) {
+                      setFeedback({ type: 'error', text: err.message || 'Failed to clear visit.' });
+                    }
+                  }
+                }}
+                className="py-2.5 px-3 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-xl text-xs flex items-center justify-center gap-1 border border-rose-200 shadow-xs transition-all cursor-pointer"
+                title="Force end and clear this visit immediately"
+              >
+                <XCircle className="w-4 h-4" />
+                <span>End / Clear Visit</span>
               </button>
             </div>
           </div>

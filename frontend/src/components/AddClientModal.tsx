@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Building2, X, MapPin, Phone, User, Compass, CheckCircle2, AlertCircle } from 'lucide-react';
 import { createClientLocation } from '@/lib/api';
 
@@ -16,13 +16,35 @@ export default function AddClientModal({ isOpen, onClose, onSuccess }: AddClient
     address: '',
     contact_person: '',
     contact_phone: '',
-    latitude: '40.7580',
-    longitude: '-73.9855',
+    latitude: '',
+    longitude: '',
     geofence_radius_meters: '50'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const useCurrentLocation = () => {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setFormData((prev) => ({
+            ...prev,
+            latitude: pos.coords.latitude.toFixed(6),
+            longitude: pos.coords.longitude.toFixed(6)
+          }));
+        },
+        (err) => console.warn('Could not get current GPS:', err),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && (!formData.latitude || !formData.longitude)) {
+      useCurrentLocation();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -208,34 +230,19 @@ export default function AddClientModal({ isOpen, onClose, onSuccess }: AddClient
             </div>
           </div>
 
-          {/* Quick Preset Coordinates Helpers */}
-          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              Quick Coordinate Presets:
+          {/* GPS Location Helpers */}
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+            <span className="text-[11px] text-slate-600 font-medium">
+              Want to set geofence at your current place?
             </span>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleSetPreset('40.7589', '-73.9851', 'Times Square, New York, NY')}
-                className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                Times Square
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetPreset('40.7505', '-73.9934', 'Penn Station, New York, NY')}
-                className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                Penn Station
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetPreset('40.7527', '-73.9772', 'Grand Central, New York, NY')}
-                className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                Grand Central
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={useCurrentLocation}
+              className="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Use Current GPS</span>
+            </button>
           </div>
 
           <div className="pt-2 flex items-center justify-end gap-2.5">

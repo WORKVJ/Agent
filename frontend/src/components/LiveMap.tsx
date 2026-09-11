@@ -31,7 +31,19 @@ export default function LiveMap({
 
       if (!mapContainerRef.current || mapInstanceRef.current || !isMounted) return;
 
-      const initialCenter: [number, number] = [40.7580, -73.9855];
+      // Smart initial center: real agent, real client, or local default (NOT hardcoded New York)
+      let initialCenter: [number, number] = [11.8028, 76.0033];
+      const validAgent = agents.find(
+        (a) => a.last_latitude && a.last_longitude && Math.abs(a.last_latitude - 40.7580) > 0.05
+      );
+      if (validAgent && validAgent.last_latitude && validAgent.last_longitude) {
+        initialCenter = [validAgent.last_latitude, validAgent.last_longitude];
+      } else if (clients.length > 0 && clients[0].latitude) {
+        initialCenter = [clients[0].latitude, clients[0].longitude];
+      } else if (agents.length > 0 && agents[0].last_latitude && agents[0].last_longitude) {
+        initialCenter = [agents[0].last_latitude, agents[0].last_longitude];
+      }
+
       const map = L.map(mapContainerRef.current, {
         center: initialCenter,
         zoom: 14,
@@ -47,6 +59,24 @@ export default function LiveMap({
       }).addTo(map);
 
       mapInstanceRef.current = map;
+
+      // Auto-locate user's real browser position
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (map && (map as any)._loaded) {
+              const hasRealAgent = agents.some(
+                (a) => a.last_latitude && Math.abs(a.last_latitude - 40.7580) > 0.05
+              );
+              if (!hasRealAgent) {
+                map.setView([pos.coords.latitude, pos.coords.longitude], 14);
+              }
+            }
+          },
+          (err) => console.warn('Browser GPS notice:', err),
+          { timeout: 6000, maximumAge: 60000 }
+        );
+      }
 
       // Render client locations & geofences
       clientMarkersRef.current = [];
@@ -331,6 +361,30 @@ export default function LiveMap({
   return (
     <div className="relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm bg-white">
       <div ref={mapContainerRef} className="w-full h-full z-0" />
+
+      {/* Fly to My Location Floating Button */}
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof navigator !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                const map = mapInstanceRef.current;
+                if (map && (map as any)._loaded) {
+                  map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1.2 });
+                }
+              },
+              (err) => alert('Could not get GPS position: ' + err.message + '. Please allow Location in browser.'),
+              { enableHighAccuracy: true, timeout: 8000 }
+            );
+          }
+        }}
+        className="absolute top-4 right-4 z-[400] bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs px-3.5 py-2 rounded-2xl border border-slate-200 shadow-md flex items-center gap-1.5 cursor-pointer transition-all hover:shadow-lg"
+        title="Fly map to my real device GPS location"
+      >
+        <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+        <span>🎯 Fly to My Location</span>
+      </button>
 
       {/* Map Legend Overlay */}
       <div className="absolute bottom-4 left-4 z-[400] glass-panel px-3.5 py-2.5 rounded-xl text-xs space-y-2 border border-slate-200 shadow-md hidden sm:block">

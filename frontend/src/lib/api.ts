@@ -187,11 +187,25 @@ export async function toggleDutyStatus(agentId: number, isOnDuty: boolean): Prom
   return res.json();
 }
 
-export async function sendLocationPing(agentId: number, lat: number, lng: number, speed = 0.0, battery = 100): Promise<any> {
+export async function sendLocationPing(
+  agentId: number,
+  lat: number,
+  lng: number,
+  speed = 0.0,
+  battery = 100,
+  syncLocation = false
+): Promise<any> {
   const res = await fetch(`${API_BASE_URL}/location/ping/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agent_id: agentId, latitude: lat, longitude: lng, speed, battery_level: battery })
+    body: JSON.stringify({
+      agent_id: agentId,
+      latitude: lat,
+      longitude: lng,
+      speed,
+      battery_level: battery,
+      sync_location: syncLocation
+    })
   });
   if (!res.ok) throw new Error('Failed to send location ping');
   return res.json();

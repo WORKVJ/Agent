@@ -110,7 +110,7 @@ export default function RouteReplayPage() {
       if (!mapContainerRef.current || mapInstanceRef.current) return;
 
       const map = L.map(mapContainerRef.current, {
-        center: [40.7580, -73.9855],
+        center: [11.8028, 76.0033],
         zoom: 14,
         zoomControl: false
       });

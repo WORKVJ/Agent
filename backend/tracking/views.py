@@ -195,9 +195,10 @@ class LocationPingAPIView(APIView):
         battery = serializer.validated_data.get('battery_level', 100)
 
         agent = get_object_or_404(AgentProfile, id=agent_id)
+        sync_location = request.data.get('sync_location', False) or request.data.get('force', False)
 
-        # Privacy compliance: Only record coordinates if agent is On-Duty
-        if agent.is_on_duty:
+        # Record coordinates if agent is On-Duty or explicitly syncing real device GPS
+        if agent.is_on_duty or sync_location or agent.last_latitude is None:
             agent.update_location(lat, lng, speed, battery)
             log = LocationTrackingLog.objects.create(
                 agent=agent,
@@ -226,7 +227,9 @@ class LocationPingAPIView(APIView):
                 "success": True,
                 "recorded": True,
                 "agent_status": agent.current_status,
-                "battery_level": agent.battery_level
+                "battery_level": agent.battery_level,
+                "latitude": lat,
+                "longitude": lng
             }, status=status.HTTP_200_OK)
         else:
             return Response({
@@ -387,8 +390,8 @@ class AgentListAPIView(APIView):
             is_on_duty=False,
             current_status=AgentProfile.STATUS_OFF_DUTY,
             battery_level=100,
-            last_latitude=40.7580,
-            last_longitude=-73.9855,
+            last_latitude=request.data.get('latitude'),
+            last_longitude=request.data.get('longitude'),
             last_speed=0.0,
             last_seen_at=timezone.now()
         )
