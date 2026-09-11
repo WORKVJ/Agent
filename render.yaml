@@ -4,7 +4,7 @@ services:
     env: python
     rootDir: backend
     plan: free
-    buildCommand: "pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput"
+    buildCommand: "pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput && python ensure_admin.py"
     startCommand: "daphne -b 0.0.0.0 -p $PORT core.asgi:application"
     envVars:
       - key: PYTHON_VERSION

