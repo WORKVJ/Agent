@@ -6,17 +6,15 @@ import {
   Navigation,
   ShieldCheck,
   Smartphone,
-  KeyRound,
   User,
   Eye,
   EyeOff,
   LogIn,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   Lock
 } from 'lucide-react';
-import { loginUser, API_BASE_URL } from '@/lib/api';
+import { loginUser } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -332,28 +330,6 @@ export default function LoginPage() {
               </>
             )}
           </div>
-        </div>
-
-        {/* Django Admin Link & Backend Notice */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200 text-xs text-slate-600 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
-              <KeyRound className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="font-semibold text-slate-800">Django Admin Backend</div>
-              <div className="text-[11px] text-slate-500">Manage database models, add agents, client locations &amp; logs directly.</div>
-            </div>
-          </div>
-          <a
-            href={`${API_BASE_URL.replace(/\/api\/?$/, '')}/admin/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-100 transition-all shrink-0 ml-2"
-          >
-            <span>Open</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
         </div>
 
       </div>
