@@ -46,6 +46,17 @@ export interface Agent {
     distance_at_checkin: number;
     selfie_image?: string | null;
   } | null;
+  latest_visit?: {
+    id: number;
+    client_id?: number | null;
+    client_name: string;
+    check_in_time: string;
+    check_out_time?: string | null;
+    status: string;
+    distance_at_checkin: number;
+    selfie_image?: string | null;
+    duration_minutes?: number;
+  } | null;
 }
 
 export interface ClientLocation {

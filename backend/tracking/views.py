@@ -73,6 +73,14 @@ class CheckInAPIView(APIView):
         elif client_id:
             client = get_object_or_404(ClientLocation, id=client_id)
             is_inside, distance = client.is_agent_inside(agent_lat, agent_lng)
+            if not is_inside:
+                return Response({
+                    "success": False,
+                    "error": f"Geofence validation failed. You are {distance:.1f}m away from {client.name}, which exceeds the {client.geofence_radius_meters}m boundary.",
+                    "distance_meters": distance,
+                    "client_name": client.name,
+                    "geofence_radius_meters": client.geofence_radius_meters
+                }, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({
                 "success": False,
@@ -197,8 +205,16 @@ class LocationPingAPIView(APIView):
         agent = get_object_or_404(AgentProfile, id=agent_id)
         sync_location = request.data.get('sync_location', False) or request.data.get('force', False)
 
+        # Reject / ignore Times Square dummy coordinate (40.7580, -73.9855)
+        if round(lat, 4) == 40.7580 and round(lng, 4) == -73.9855:
+            return Response({
+                "success": True,
+                "recorded": False,
+                "message": "Ignored dummy Manhattan coordinates."
+            }, status=status.HTTP_200_OK)
+
         # Record coordinates if agent is On-Duty or explicitly syncing real device GPS
-        if agent.is_on_duty or sync_location or agent.last_latitude is None:
+        if agent.is_on_duty or sync_location:
             agent.update_location(lat, lng, speed, battery)
             log = LocationTrackingLog.objects.create(
                 agent=agent,
@@ -607,6 +623,10 @@ class RouteReplayAPIView(APIView):
         prev_log = None
 
         for log in logs:
+            # Skip dummy Manhattan coordinates
+            if round(log.latitude, 4) == 40.7580 and round(log.longitude, 4) == -73.9855:
+                continue
+
             path.append({
                 'id': log.id,
                 'lat': log.latitude,
@@ -621,7 +641,9 @@ class RouteReplayAPIView(APIView):
                     prev_log.latitude, prev_log.longitude,
                     log.latitude, log.longitude
                 )
-                total_distance += d
+                # Discard teleportation jumps > 100 km (e.g. cross-continent anomalies)
+                if d < 100000:
+                    total_distance += d
             prev_log = log
 
         # Get visits during this window
@@ -676,11 +698,16 @@ class AnalyticsSummaryAPIView(APIView):
             ).order_by('timestamp')
             prev = None
             for item in agent_logs:
+                # Discard dummy Manhattan coordinates
+                if round(item.latitude, 4) == 40.7580 and round(item.longitude, 4) == -73.9855:
+                    continue
                 if prev:
-                    total_distance_meters += calculate_distance_meters(
+                    d = calculate_distance_meters(
                         prev.latitude, prev.longitude,
                         item.latitude, item.longitude
                     )
+                    if d < 100000:
+                        total_distance_meters += d
                 prev = item
 
         conversion_rate = round((completed_visits / total_visits * 100) if total_visits > 0 else 0, 1)

@@ -163,6 +163,21 @@ export default function FieldAgentMobileApp() {
     };
   }, []);
 
+  // Hardware Device Battery API Integration
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
+      (navigator as any).getBattery().then((battery: any) => {
+        const updateBattery = () => {
+          const pct = Math.round(battery.level * 100);
+          setBatteryLevel(pct);
+        };
+        updateBattery();
+        battery.addEventListener('levelchange', updateBattery);
+        battery.addEventListener('chargingchange', updateBattery);
+      }).catch((err: any) => console.warn('Battery API not available:', err));
+    }
+  }, []);
+
   // Load initial agents & clients
   useEffect(() => {
     async function init() {
@@ -254,8 +269,14 @@ export default function FieldAgentMobileApp() {
     const agent = agents.find((a) => a.id === id);
     if (agent) {
       setIsOnDuty(agent.is_on_duty);
-      setBatteryLevel(agent.battery_level);
-      if (agent.last_latitude && agent.last_longitude) {
+      if (agent.battery_level) {
+        setBatteryLevel(agent.battery_level);
+      }
+      if (
+        agent.last_latitude &&
+        agent.last_longitude &&
+        Math.abs(agent.last_latitude - 40.7580) > 0.05
+      ) {
         setCurrentLat(agent.last_latitude);
         setCurrentLng(agent.last_longitude);
       }
@@ -264,6 +285,10 @@ export default function FieldAgentMobileApp() {
         meetingStartTimeRef.current = new Date(agent.active_visit.check_in_time).getTime();
       } else {
         meetingStartTimeRef.current = null;
+      }
+      // Re-engage real device GPS for the selected agent
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        enableRealDeviceGps();
       }
     }
   };
@@ -329,6 +354,10 @@ export default function FieldAgentMobileApp() {
     const onGpsSuccess = (pos: GeolocationPosition) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
+      // Discard dummy Manhattan coordinates
+      if (Math.abs(lat - 40.7580) < 0.05 && Math.abs(lng - (-73.9855)) < 0.05) {
+        return;
+      }
       const speedKmh = Math.round((pos.coords.speed || 0) * 3.6);
       setCurrentLat(lat);
       setCurrentLng(lng);
@@ -373,6 +402,7 @@ export default function FieldAgentMobileApp() {
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
+          if (Math.abs(lat - 40.7580) < 0.05 && Math.abs(lng - (-73.9855)) < 0.05) return;
           const speedKmh = Math.round((pos.coords.speed || 0) * 3.6);
           setCurrentLat(lat);
           setCurrentLng(lng);
@@ -437,17 +467,20 @@ export default function FieldAgentMobileApp() {
     }
   };
 
-  // Periodic Location Tracking with dynamic battery optimization
+  // Periodic Location Tracking with real GPS transmission
   useEffect(() => {
     if (!isOnDuty) {
       if (pingTimerRef.current) clearInterval(pingTimerRef.current);
       return;
     }
 
-    const intervalMs = isStationary ? 12000 : 5000;
+    const intervalMs = isStationary ? 15000 : 8000;
 
     pingTimerRef.current = setInterval(async () => {
-      setBatteryLevel((b) => Math.max(15, b - 0.05));
+      // Discard dummy Manhattan coordinates from transmitting
+      if (Math.abs(currentLat - 40.7580) < 0.05 && Math.abs(currentLng - (-73.9855)) < 0.05) {
+        return;
+      }
 
       if (isSimulatedOffline) {
         const item: OfflineQueuedItem = {
@@ -473,7 +506,8 @@ export default function FieldAgentMobileApp() {
           currentLat,
           currentLng,
           currentSpeed,
-          Math.round(batteryLevel)
+          Math.round(batteryLevel),
+          true
         );
       } catch (err) {
         console.warn('Background ping error:', err);
@@ -1222,6 +1256,28 @@ export default function FieldAgentMobileApp() {
               <span className="text-[10px] bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                 In-Progress
               </span>
+            </div>
+            {/* Prominent Punch-In Time & Stopwatch Status */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-white/90 border border-blue-200">
+              <div className="flex items-center gap-1.5 text-slate-800">
+                <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span className="text-[11px] font-medium">
+                  Punch-In Time:{' '}
+                  <strong className="font-mono text-slate-900 font-bold">
+                    {activeVisit.check_in_time
+                      ? new Date(activeVisit.check_in_time).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })
+                      : 'Recorded'}
+                  </strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                <span>Elapsed:</span>
+                <strong className="font-bold">{meetingTimer}</strong>
+              </div>
             </div>
             <p className="text-[11px] text-blue-800 leading-relaxed">
               Your meeting stopwatch is currently active. To punch in at another location, complete your visit notes and punch out below.

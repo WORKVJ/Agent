@@ -297,6 +297,10 @@ export default function LiveMap({
                         <span class="text-slate-500 text-[10px] font-mono">${agent.active_visit.distance_at_checkin}m</span>
                       </div>
                       <span class="text-slate-900 font-semibold block">${agent.active_visit.client_name}</span>
+                      <div class="flex items-center justify-between text-[10px] bg-white/90 px-2 py-1 rounded border border-emerald-200">
+                        <span class="text-slate-600 font-medium">Punched In:</span>
+                        <strong class="font-mono text-slate-900">${agent.active_visit.check_in_time ? new Date(agent.active_visit.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Active'}</strong>
+                      </div>
                       ${
                         agent.active_visit.selfie_image
                           ? `

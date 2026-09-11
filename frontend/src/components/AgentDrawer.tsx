@@ -188,7 +188,7 @@ export default function AgentDrawer({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-blue-900">
                         <Store className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                        <span className="font-semibold truncate max-w-[160px]">
+                        <span className="font-semibold truncate max-w-[150px]">
                           {agent.active_visit.client_name}
                         </span>
                       </div>
@@ -196,6 +196,26 @@ export default function AgentDrawer({
                         {agent.active_visit.distance_at_checkin}m
                       </span>
                     </div>
+
+                    {/* Prominent Punch-In Time */}
+                    <div className="flex items-center justify-between text-[10px] bg-white/80 px-2 py-1 rounded-md border border-blue-100">
+                      <div className="flex items-center gap-1 text-slate-700 font-medium">
+                        <Clock className="w-3 h-3 text-blue-600 shrink-0" />
+                        <span>Punched In:</span>
+                        <strong className="font-mono text-slate-900 font-bold">
+                          {agent.active_visit.check_in_time
+                            ? new Date(agent.active_visit.check_in_time).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'Active'}
+                        </strong>
+                      </div>
+                      <span className="text-emerald-700 font-bold text-[9px] uppercase">
+                        ● In Progress
+                      </span>
+                    </div>
+
                     {agent.active_visit.selfie_image && (
                       <div className="flex items-center gap-2 pt-1 border-t border-blue-200/60">
                         <img
@@ -208,11 +228,50 @@ export default function AgentDrawer({
                             ✓ Punch-In Verified
                           </span>
                           <span className="text-[9px] text-blue-600/80 font-mono block truncate">
-                            GPS & Time Stamped
+                            GPS Stamp • {new Date(agent.active_visit.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Latest Completed Meeting Banner if not currently checked in */}
+                {!agent.active_visit && agent.latest_visit && (
+                  <div className="mt-2.5 p-2 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] space-y-1 shadow-2xs">
+                    <div className="flex items-center justify-between text-slate-700">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <Store className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <span className="truncate max-w-[150px] font-semibold">{agent.latest_visit.client_name}</span>
+                      </div>
+                      <span className="text-[9px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        {agent.latest_visit.duration_minutes ? `${agent.latest_visit.duration_minutes}m visit` : 'Completed'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
+                      {agent.latest_visit.selfie_image ? (
+                        <img
+                          src={agent.latest_visit.selfie_image}
+                          alt="Punch Proof"
+                          className="w-8 h-8 rounded-md object-cover border border-slate-300 shrink-0 bg-black"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-md bg-slate-200 flex items-center justify-center text-slate-500 text-[10px] shrink-0 font-bold">
+                          ✓
+                        </div>
+                      )}
+                      <div className="overflow-hidden">
+                        <span className="text-[10px] font-bold text-slate-800 block truncate">
+                          Punched In: {new Date(agent.latest_visit.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {agent.latest_visit.check_out_time && (
+                          <span className="text-[9px] text-slate-500 font-mono block truncate">
+                            Out: {new Date(agent.latest_visit.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 

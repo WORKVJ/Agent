@@ -22,6 +22,7 @@ class AgentProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     full_name = serializers.SerializerMethodField()
     active_visit = serializers.SerializerMethodField()
+    latest_visit = serializers.SerializerMethodField()
 
     class Meta:
         model = AgentProfile
@@ -29,7 +30,7 @@ class AgentProfileSerializer(serializers.ModelSerializer):
             'id', 'user', 'employee_id', 'full_name', 'phone_number',
             'is_on_duty', 'current_status', 'battery_level',
             'last_latitude', 'last_longitude', 'last_speed',
-            'last_seen_at', 'active_visit'
+            'last_seen_at', 'active_visit', 'latest_visit'
         ]
 
     def get_full_name(self, obj):
@@ -40,11 +41,27 @@ class AgentProfileSerializer(serializers.ModelSerializer):
         if visit:
             return {
                 'id': visit.id,
-                'client_id': visit.client.id,
-                'client_name': visit.client.name,
+                'client_id': visit.client.id if visit.client else None,
+                'client_name': visit.client.name if visit.client else 'Client Visit',
                 'check_in_time': visit.check_in_time,
                 'distance_at_checkin': visit.distance_at_checkin,
                 'selfie_image': visit.selfie_image
+            }
+        return None
+
+    def get_latest_visit(self, obj):
+        visit = obj.visits.order_by('-check_in_time').first()
+        if visit:
+            return {
+                'id': visit.id,
+                'client_id': visit.client.id if visit.client else None,
+                'client_name': visit.client.name if visit.client else 'Client Visit',
+                'check_in_time': visit.check_in_time,
+                'check_out_time': visit.check_out_time,
+                'status': visit.status,
+                'distance_at_checkin': visit.distance_at_checkin,
+                'selfie_image': visit.selfie_image,
+                'duration_minutes': visit.duration_minutes
             }
         return None
 
