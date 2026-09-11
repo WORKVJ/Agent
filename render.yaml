@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: agentpulse-backend
+    env: python
+    rootDir: backend
+    plan: free
+    buildCommand: "pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput && python seed_data.py"
+    startCommand: "daphne -b 0.0.0.0 -p $PORT core.asgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "True"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
