@@ -3,7 +3,7 @@ from .views import (
     CheckInAPIView, CheckOutAPIView, LocationPingAPIView,
     DutyToggleAPIView, AgentListAPIView, ClientListAPIView,
     VisitListAPIView, RouteReplayAPIView, AnalyticsSummaryAPIView,
-    AuthLoginAPIView
+    AuthLoginAPIView, PurgeDataAPIView
 )
 
 urlpatterns = [
@@ -17,4 +17,5 @@ urlpatterns = [
     path('visits/', VisitListAPIView.as_view(), name='api_visits_list'),
     path('routes/<int:agent_id>/', RouteReplayAPIView.as_view(), name='api_route_replay'),
     path('analytics/', AnalyticsSummaryAPIView.as_view(), name='api_analytics_summary'),
+    path('purge/', PurgeDataAPIView.as_view(), name='api_purge_dummy_data'),
 ]

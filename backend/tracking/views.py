@@ -594,3 +594,51 @@ class AnalyticsSummaryAPIView(APIView):
                 "transit_time_minutes": estimated_transit_minutes,
             }
         })
+
+
+class PurgeDataAPIView(APIView):
+    """
+    POST /api/purge/
+    Deletes all dummy visit logs, tracking logs, dummy client locations, and dummy agents.
+    Preserves or recreates clean superuser 'admin' with 'AdminPass123!'.
+    """
+    def post(self, request):
+        from django.contrib.auth.models import User
+        v_count, _ = VisitLog.objects.all().delete()
+        l_count, _ = LocationTrackingLog.objects.all().delete()
+        c_count, _ = ClientLocation.objects.all().delete()
+        a_count, _ = AgentProfile.objects.all().delete()
+        u_count, _ = User.objects.filter(is_superuser=False, is_staff=False).delete()
+
+        admin_user, _ = User.objects.get_or_create(
+            username='admin',
+            defaults={
+                'first_name': 'System',
+                'last_name': 'Administrator',
+                'email': 'admin@agentpulse.com',
+                'is_staff': True,
+                'is_superuser': True
+            }
+        )
+        admin_user.set_password('AdminPass123!')
+        admin_user.is_staff = True
+        admin_user.is_superuser = True
+        admin_user.save()
+
+        # Broadcast sync
+        broadcast_location_sync({
+            'event': 'data_purged',
+            'timestamp': timezone.now().isoformat()
+        })
+
+        return Response({
+            "success": True,
+            "message": "All dummy data purged successfully. Ready for real-world testing.",
+            "deleted": {
+                "visits": v_count,
+                "tracking_logs": l_count,
+                "clients": c_count,
+                "agents": a_count,
+                "users": u_count
+            }
+        }, status=status.HTTP_200_OK)
