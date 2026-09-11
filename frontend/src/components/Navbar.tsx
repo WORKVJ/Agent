@@ -14,7 +14,8 @@ import {
   Compass,
   History,
   BarChart3,
-  MapPin
+  MapPin,
+  Users
 } from 'lucide-react';
 import { WS_BASE_URL } from '@/lib/api';
 
@@ -92,6 +93,9 @@ export default function Navbar({ onToggleMobile }: NavbarProps) {
     if (pathname === '/analytics') {
       return { section: 'Intelligence', title: 'Visit Audits & Proofs', icon: BarChart3 };
     }
+    if (pathname === '/users') {
+      return { section: 'Fleet Operations', title: 'Fleet Agents & User Accounts', icon: Users };
+    }
     if (pathname === '/agent') {
       return { section: 'Field Portal', title: 'Agent On-Duty & Check-In', icon: Smartphone };
     }
@@ -166,17 +170,23 @@ export default function Navbar({ onToggleMobile }: NavbarProps) {
           {/* User Profile Pill */}
           {userSession && (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl p-1 pr-2">
-              <div className="w-6 h-6 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                {isAgent ? <Smartphone className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
-              </div>
-              <div className="text-left hidden sm:block">
-                <div className="text-xs font-semibold text-slate-800 leading-tight truncate max-w-[120px]">
-                  {userSession.user?.name || userSession.user?.username}
+              <Link
+                href="/users"
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                title="View All User Accounts & Details"
+              >
+                <div className="w-6 h-6 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                  {isAgent ? <Smartphone className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
                 </div>
-                <div className="text-[10px] text-slate-400 uppercase font-semibold">
-                  {isAgent ? userSession.agent?.employee_id || 'Agent' : 'HQ Admin'}
+                <div className="text-left hidden sm:block">
+                  <div className="text-xs font-semibold text-slate-800 leading-tight truncate max-w-[120px]">
+                    {userSession.user?.name || userSession.user?.username}
+                  </div>
+                  <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                    {isAgent ? userSession.agent?.employee_id || 'Agent' : 'HQ Admin'}
+                  </div>
                 </div>
-              </div>
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}

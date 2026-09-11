@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Building2,
   Activity,
-  Layers
+  Layers,
+  Users
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -106,6 +107,7 @@ export default function Sidebar({
           title: 'Fleet Operations',
           items: [
             { label: 'Live Operations Radar', href: '/', icon: MapPin },
+            { label: 'Fleet Agents & Users', href: '/users', icon: Users },
             { label: 'Route Replay HUD', href: '/replay', icon: History },
             { label: 'Visit Audits & Proofs', href: '/analytics', icon: BarChart3 }
           ]
