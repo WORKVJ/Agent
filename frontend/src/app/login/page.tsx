@@ -37,8 +37,8 @@ export default function LoginPage() {
       setUsername('admin');
       setPassword('AdminPass123!');
     } else {
-      setUsername('');
-      setPassword('');
+      setUsername('vijay');
+      setPassword('AgentPass123!');
     }
   };
 
@@ -274,31 +274,62 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Admin Credentials Helper */}
+          {/* Quick Login Credentials Helper */}
           <div className="pt-3 border-t border-slate-100 space-y-2.5">
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span className="font-semibold flex items-center gap-1.5 text-slate-700">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                Default Administrator Account:
-              </span>
-            </div>
+            {selectedRole === 'admin' ? (
+              <>
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span className="font-semibold flex items-center gap-1.5 text-slate-700">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                    Default Administrator Account:
+                  </span>
+                </div>
 
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('admin', 'admin', 'AdminPass123!')}
-              className="w-full text-left p-3 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100/70 transition-all text-xs cursor-pointer"
-            >
-              <div className="font-bold text-blue-900 flex items-center justify-between">
-                <span>System Administrator (HQ)</span>
-                <span className="text-[10px] text-blue-600 font-semibold px-2 py-0.5 rounded bg-blue-100/80">Superuser</span>
-              </div>
-              <div className="text-[11px] text-slate-600 font-mono mt-1">Username: <strong>admin</strong> | Password: <strong>AdminPass123!</strong></div>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('admin', 'admin', 'AdminPass123!')}
+                  className="w-full text-left p-3 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100/70 transition-all text-xs cursor-pointer shadow-2xs"
+                >
+                  <div className="font-bold text-blue-900 flex items-center justify-between">
+                    <span>System Administrator (HQ)</span>
+                    <span className="text-[10px] text-blue-600 font-semibold px-2 py-0.5 rounded bg-blue-100/80">1-Click Sign In</span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 font-mono mt-1">Username: <strong>admin</strong> | Password: <strong>AdminPass123!</strong></div>
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span className="font-semibold flex items-center gap-1.5 text-emerald-700">
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                    Field Agent Credentials:
+                  </span>
+                </div>
 
-            {selectedRole === 'agent' && (
-              <div className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/70 text-amber-900 text-xs">
-                <strong>Real Agent Login:</strong> To test as an agent, log in as Admin first and click <em>&quot;+ Add Field Agent&quot;</em> to register a real agent with their username and password.
-              </div>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('agent', 'vijay', 'AgentPass123!')}
+                  className="w-full text-left p-3 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/70 transition-all text-xs cursor-pointer shadow-2xs"
+                >
+                  <div className="font-bold text-emerald-900 flex items-center justify-between">
+                    <span>Vijay Pn (Field Agent)</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold px-2 py-0.5 rounded bg-emerald-100/80">Badge: 1021</span>
+                  </div>
+                  <div className="text-[11px] text-slate-600 font-mono mt-1">Username: <strong>vijay</strong> | Password: <strong>AgentPass123!</strong></div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('agent', 'sarah', 'AgentPass123!')}
+                  className="w-full text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-all text-xs cursor-pointer shadow-2xs"
+                >
+                  <div className="font-bold text-slate-800 flex items-center justify-between">
+                    <span>Sarah Jenkins (Field Agent)</span>
+                    <span className="text-[10px] text-slate-600 font-semibold px-2 py-0.5 rounded bg-slate-200">Badge: AGT-002</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono mt-0.5">Username: <strong>sarah</strong> | Password: <strong>AgentPass123!</strong></div>
+                </button>
+              </>
             )}
           </div>
         </div>
